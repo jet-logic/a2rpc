@@ -1,0 +1,13 @@
+[project]
+name = "ariarpc"
+version = "0.0.0"
+description = "A CLI tool to interact with aria2c's RPC interface"
+authors = [
+    {name = "Jet-Logic"}
+]
+
+[tool.black]
+line-length = 127
+
+[tool.flake8]
+max-line-length = 127
