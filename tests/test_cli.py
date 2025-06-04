@@ -4,14 +4,14 @@ import subprocess
 import time
 from pathlib import Path
 from typing import List
-import json
+import tempfile
 import requests
 
 
 class TestAria2RPC(unittest.TestCase):
     RPC_URL = "http://localhost:6800/jsonrpc"
-    TEST_DIR = Path("test_downloads")
-    TEST_FILE_URL = "https://releases.ubuntu.com/22.04.2/ubuntu-22.04.2-desktop-amd64.iso.torrent"  # Large test file
+    TEST_DIR = Path(tempfile.gettempdir(), "test_downloads")
+    TEST_FILE_URL = "http://ubuntutym2.u-toyama.ac.jp/xubuntu/25.04/release/xubuntu-25.04-desktop-amd64.iso"  # Large test file
 
     @classmethod
     def setUpClass(cls):
@@ -78,7 +78,7 @@ class TestAria2RPC(unittest.TestCase):
 
         # Test shutdown
         self._run_rpc_command("shutdown")
-        time.sleep(1)  # Give server time to stop
+        time.sleep(5)  # Give server time to stop
 
         # Verify server stopped
         with self.assertRaises(requests.exceptions.ConnectionError):
@@ -87,39 +87,49 @@ class TestAria2RPC(unittest.TestCase):
         # Restart server for other tests
         self.start_server()
 
-    @unittest.skip("Enable to test download commands")
+    # @unittest.skip("Enable to test download commands")
     def test_02_download_commands(self):
         """Test add/list/remove download commands"""
         # Add download
-        add_cmd = ["python3", "aria2rpc.py", "add", self.TEST_FILE_URL, f"--dir={self.TEST_DIR}"]
+        add_cmd = ["python3", "-m", "ariarpcc", "add", self.TEST_FILE_URL, f"--dir={self.TEST_DIR}"]
         result = self._run_command(add_cmd, "Adding test download")
         self.assertEqual(result.returncode, 0)
-
         # Get the GID from output
         output_lines = result.stdout.splitlines()
         gid = output_lines[-1].split()[-1]
         self.assertTrue(len(gid) > 5)  # Basic GID format check
+        #
+        URL2 = "https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent"
+        add_cmd = ["python3", "-m", "ariarpcc", "add", URL2, f"--dir={self.TEST_DIR}"]
+        result = self._run_command(add_cmd, "Adding test download")
+        self.assertEqual(result.returncode, 0)
+        #
+        time.sleep(10)
+        #
+        self._run_command(["find", self.TEST_DIR], f"List {self.TEST_DIR}")
 
         # List downloads
-        list_cmd = ["python3", "aria2rpc.py", "list"]
+        list_cmd = ["python3", "-m", "ariarpcc", "list", "--debug"]
         result = self._run_command(list_cmd, "Listing downloads")
         self.assertEqual(result.returncode, 0)
         self.assertIn(gid, result.stdout)
 
         # Remove download
-        remove_cmd = ["python3", "aria2rpc.py", "remove", gid]
+        remove_cmd = ["python3", "-m", "ariarpcc", "remove", gid]
         result = self._run_command(remove_cmd, "Removing download")
         self.assertEqual(result.returncode, 0)
 
-    @unittest.skip("Enable to test pause/resume")
+    # @unittest.skip("Enable to test pause/resume")
     def test_03_pause_resume(self):
         """Test pause and resume functionality"""
         # Add download
-        add_result = self._run_command(["python3", "aria2rpc.py", "add", self.TEST_FILE_URL], "Adding download for pause test")
+        add_result = self._run_command(
+            ["python3", "-m", "ariarpcc", "add", self.TEST_FILE_URL], "Adding download for pause test"
+        )
         gid = add_result.stdout.split()[-1]
 
         # Pause download
-        pause_cmd = ["python3", "aria2rpc.py", "pause", gid]
+        pause_cmd = ["python3", "-m", "ariarpcc", "pause", gid]
         pause_result = self._run_command(pause_cmd, "Pausing download")
         self.assertEqual(pause_result.returncode, 0)
 
@@ -128,7 +138,7 @@ class TestAria2RPC(unittest.TestCase):
         self.assertEqual(status["result"]["status"], "paused")
 
         # Resume download
-        resume_cmd = ["python3", "aria2rpc.py", "resume", gid]
+        resume_cmd = ["python3", "-m", "ariarpcc", "resume", gid]
         resume_result = self._run_command(resume_cmd, "Resuming download")
         self.assertEqual(resume_result.returncode, 0)
 
@@ -143,12 +153,12 @@ class TestAria2RPC(unittest.TestCase):
         self.assertIn("version", version["result"])
 
         # Run shutdown command
-        shutdown_cmd = ["python3", "aria2rpc.py", "shutdown"]
+        shutdown_cmd = ["python3", "-m", "ariarpcc", "shutdown"]
         result = self._run_command(shutdown_cmd, "Shutting down server")
         self.assertEqual(result.returncode, 0)
 
         # Verify server stopped
-        time.sleep(1)  # Give server time to stop
+        time.sleep(5)  # Give server time to stop
         with self.assertRaises(requests.exceptions.ConnectionError):
             self._run_rpc_command("getVersion")
 
