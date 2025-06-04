@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
+from typing import Optional, List, Dict, Any
 import requests
 import subprocess
 import shutil
-from typing import Optional, List, Dict, Any
 from .cliskel import Main, arg, flag
 
 
@@ -34,10 +34,21 @@ class Aria2RPC(Main):
             "method": f"aria2.{method}",
             "params": params,
         }
+        try:
+            response = requests.post(self.rpc_url, json=payload)
+        except Exception as ex:
+            raise SystemExit(f"{ex}")
 
-        response = requests.post(self.rpc_url, json=payload)
-        response.raise_for_status()
-        return response.json()
+        try:
+            json: dict = response.json()
+        except Exception:
+            raise
+        else:
+            error: dict = json.get("error")
+            if error:
+                raise SystemExit(f"RPC error {error.get('code')}: {error.get('message')}")
+            response.raise_for_status()
+            return json
 
 
 class AddDownload(Aria2RPC):
@@ -46,6 +57,7 @@ class AddDownload(Aria2RPC):
     uri: str = arg("URI", help="Download URI (HTTP, Magnet, etc.)")
     output: Optional[str] = flag("-o", "--output", help="Custom output filename")
     dir: Optional[str] = flag("-d", "--dir", help="Download directory")
+    options: list = flag("-s", help="Set option name=value", default=[])
 
     def start(self):
         def read_inp(f):
@@ -74,12 +86,14 @@ class AddDownload(Aria2RPC):
                         umap[v] = ucur = udef.copy()
             return umap
 
-        options = {}
+        options = dict([(y[0], y[2]) if y[1] else (y[0], "true") for y in [x.partition("=") for x in self.options]])
         if self.output:
             options["out"] = self.output
         if self.dir:
             options["dir"] = self.dir
-
+        if not options.get("follow-torrent"):
+            if self.uri.endswith(".torrent") or self.uri.endswith(".metalink"):
+                options["follow-torrent"] = "mem"
         result = self._call_rpc("addUri", [[self.uri], options])
         print(f"Added download with GID: {result['result']}")
 
@@ -87,28 +101,63 @@ class AddDownload(Aria2RPC):
 class ListDownloads(Aria2RPC):
     """List active downloads."""
 
+    debug: int = flag("d", "debug", help="info about each task", action="count")
+
     def start(self):
         active = self._call_rpc("tellActive")["result"]
         waiting = self._call_rpc("tellWaiting", [0, 100])["result"]
         stopped = self._call_rpc("tellStopped", [0, 100])["result"]
 
-        print("\n=== Active Downloads ===")
+        class Sf:
+            def __or__(self, that: object):
+                return filesizef(float(that))
+
+        sf = Sf()
+
+        if self.debug:
+            from sys import stdout as out
+            from yaml import dump, safe_dump
+
+            def dbg(task: dict):
+                if self.debug < 2:
+                    task.pop("bitfield", None)
+                    task.pop("gid", None)
+                    e = task.get("errorCode", None)
+                    if e:
+                        try:
+                            if int(e) == 0:
+                                task.pop("errorCode", None)
+                                task.pop("errorMessage", None)
+                        except Exception:
+                            pass
+                s = dump(task)
+                for x in s.splitlines():
+                    print(f"\t{x}")
+
+        else:
+            dbg = None
+
+        head = "\n=== Active Downloads ==="
         for task in active:
-            print(
-                f"[{task['gid']}] {task['completedLength']}/{task['totalLength']} - {task['files'][0]['path']}"
-            )
-
-        print("\n=== Waiting Downloads ===")
+            if head:
+                print(head)
+                head = None
+            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
+            dbg and dbg(task)
+        head = "\n=== Waiting Downloads ==="
         for task in waiting:
-            print(
-                f"[{task['gid']}] {task['completedLength']}/{task['totalLength']} - {task['files'][0]['path']}"
-            )
-
-        print("\n=== Stopped Downloads ===")
+            if head:
+                print(head)
+                head = None
+            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
+            dbg and dbg(task)
+        head = "\n=== Stopped Downloads ==="
         for task in stopped:
-            print(
-                f"[{task['gid']}] {task['completedLength']}/{task['totalLength']} - {task['files'][0]['path']}"
-            )
+            if head:
+                print(head)
+                head = None
+            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
+            dbg and dbg(task)
 
 
 class RemoveDownload(Aria2RPC):
@@ -154,9 +203,7 @@ class ResumeDownload(Aria2RPC):
 class Shutdown(Aria2RPC):
     """Shutdown aria2c."""
 
-    force: bool = flag(
-        "--force", action="store_true", help="Force shutdown (no confirmation)"
-    )
+    force: bool = flag("--force", action="store_true", help="Force shutdown (no confirmation)")
 
     def _is_server_running(self) -> bool:
         """Check if the RPC server is running by making a test request."""
@@ -192,23 +239,17 @@ class StartServer(Aria2RPC):
     """Start aria2c RPC server."""
 
     port: int = flag("-p", "--port", default=6800, help="RPC server port")
-    enable_rpc: bool = flag(
-        "--enable-rpc",
-        action="store_true",
-        default=True,
-        help="Enable JSON-RPC/XML-RPC server",
-    )
-    rpc_listen_all: bool = flag(
-        "--rpc-listen-all", action="store_true", help="Listen on all network interfaces"
-    )
-    rpc_allow_origin_all: bool = flag(
-        "--rpc-allow-origin-all", action="store_true", help="Allow all origins"
-    )
-    continue_downloads: bool = flag(
-        "--continue", action="store_true", help="Continue interrupted downloads"
-    )
+    # enable_rpc: bool = flag(
+    #     "--enable-rpc",
+    #     action="store_true",
+    #     default=True,
+    #     help="Enable JSON-RPC/XML-RPC server",
+    # )
+    rpc_listen_all: bool = flag("--rpc-listen-all", action="store_true", help="Listen on all network interfaces")
+    rpc_allow_origin_all: bool = flag("--rpc-allow-origin-all", action="store_true", help="Allow all origins")
+    continue_downloads: bool = flag("--continue", action="store_true", help="Continue interrupted downloads")
     dir: str = flag("-d", "--dir", help="Default download directory")
-    daemon: bool = flag("--daemon", action="store_true", help="Run as daemon")
+    # daemon: bool = flag("--daemon", action="store_true", help="Run as daemon")
 
     def start(self):
         if not shutil.which(self.aria2c_path):
@@ -217,9 +258,9 @@ class StartServer(Aria2RPC):
 
         cmd = [self.aria2c_path]
 
-        if self.enable_rpc:
-            cmd.extend(["--enable-rpc"])
-            cmd.extend(["--rpc-listen-port", str(self.port)])
+        cmd.extend(["--enable-rpc"])
+        cmd.extend(["--rpc-listen-port", str(self.port)])
+        cmd.append("--daemon")
 
         if self.rpc_listen_all:
             cmd.append("--rpc-listen-all")
@@ -233,8 +274,7 @@ class StartServer(Aria2RPC):
         if self.dir:
             cmd.extend(["--dir", self.dir])
 
-        if self.daemon:
-            cmd.append("--daemon")
+        # if self.daemon:
 
         if self.rpc_secret:
             cmd.extend(["--rpc-secret", self.rpc_secret])
@@ -258,6 +298,17 @@ class Aria2CLI(Aria2RPC):
         yield PauseDownload(), {"name": "pause", "help": "Pause a download"}
         yield ResumeDownload(), {"name": "resume", "help": "Resume a download"}
         yield Shutdown(), {"name": "shutdown", "help": "Shutdown aria2c"}
+
+
+def filesizef(s):
+    # type: (Union[int, float]) -> str
+    if not s and s != 0:
+        return "-"
+    for x in "bkMGTPEZY":
+        if s < 1000:
+            break
+        s /= 1024.0
+    return ("%.1f" % s).rstrip("0").rstrip(".") + x
 
 
 def main():

@@ -5,6 +5,7 @@ description = "A CLI tool to interact with aria2c's RPC interface"
 authors = [
     {name = "Jet-Logic"}
 ]
+dependencies = [    "requests",  "pyyaml"]
 
 [tool.black]
 line-length = 127
