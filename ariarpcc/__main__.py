@@ -94,8 +94,12 @@ class InputDownload(Aria2RPC):
                                 o_all[name] = value
                             else:
                                 o_cur[name] = value
-                    elif v not in umap:
-                        umap[v] = o_cur = o_all.copy()
+                    # elif v not in umap:
+                    #     umap[v] = o_cur = o_all.copy()
+                    else:
+                        o_cur = o_all.copy()
+                        for url in v.split():
+                            umap[url] = o_cur
             return umap
 
         for x in self.inputs:
@@ -271,7 +275,7 @@ class Aria2CLI(Aria2RPC):
         metavar="URL",
         help="Aria2 RPC server URL",
     )
-    rpc_secret: Optional[str] = flag("--rpc-secret", help="Aria2 RPC secret token", metavar="SECRET")
+    rpc_secret: Optional[str] = flag("rpc-secret", help="Aria2 RPC secret token", metavar="SECRET")
 
     def sub_args(self):
         yield StartServer(), {"name": "start", "help": "Start aria2c RPC server"}
