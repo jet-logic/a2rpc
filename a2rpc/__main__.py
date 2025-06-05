@@ -5,6 +5,8 @@ import subprocess
 import shutil
 from .cliskel import Main, arg, flag
 
+__version__ = "0.0.1"
+
 
 class Aria2RPC(Main):
     """
@@ -94,8 +96,12 @@ class InputDownload(Aria2RPC):
                                 o_all[name] = value
                             else:
                                 o_cur[name] = value
-                    elif v not in umap:
-                        umap[v] = o_cur = o_all.copy()
+                    # elif v not in umap:
+                    #     umap[v] = o_cur = o_all.copy()
+                    else:
+                        o_cur = o_all.copy()
+                        for url in v.split():
+                            umap[url] = o_cur
             return umap
 
         for x in self.inputs:

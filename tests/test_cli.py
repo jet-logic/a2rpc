@@ -91,7 +91,7 @@ class TestAria2RPC(unittest.TestCase):
     def test_02_download_commands(self):
         """Test add/list/remove download commands"""
         # Add download
-        add_cmd = ["python3", "-m", "ariarpcc", "add", self.TEST_FILE_URL, f"--dir={self.TEST_DIR}"]
+        add_cmd = ["python3", "-m", "a2rpc", "add", self.TEST_FILE_URL, f"--dir={self.TEST_DIR}"]
         result = self._run_command(add_cmd, "Adding test download")
         self.assertEqual(result.returncode, 0)
         # Get the GID from output
@@ -100,7 +100,7 @@ class TestAria2RPC(unittest.TestCase):
         self.assertTrue(len(gid) > 5)  # Basic GID format check
         #
         URL2 = "https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent"
-        add_cmd = ["python3", "-m", "ariarpcc", "add", URL2, f"--dir={self.TEST_DIR}"]
+        add_cmd = ["python3", "-m", "a2rpc", "add", URL2, f"--dir={self.TEST_DIR}"]
         result = self._run_command(add_cmd, "Adding test download")
         self.assertEqual(result.returncode, 0)
         #
@@ -109,13 +109,13 @@ class TestAria2RPC(unittest.TestCase):
         self._run_command(["find", self.TEST_DIR], f"List {self.TEST_DIR}")
 
         # List downloads
-        list_cmd = ["python3", "-m", "ariarpcc", "list", "--debug"]
+        list_cmd = ["python3", "-m", "a2rpc", "list", "--debug"]
         result = self._run_command(list_cmd, "Listing downloads")
         self.assertEqual(result.returncode, 0)
         self.assertIn(gid, result.stdout)
 
         # Remove download
-        remove_cmd = ["python3", "-m", "ariarpcc", "remove", gid]
+        remove_cmd = ["python3", "-m", "a2rpc", "remove", gid]
         result = self._run_command(remove_cmd, "Removing download")
         self.assertEqual(result.returncode, 0)
 
@@ -123,13 +123,11 @@ class TestAria2RPC(unittest.TestCase):
     def test_03_pause_resume(self):
         """Test pause and resume functionality"""
         # Add download
-        add_result = self._run_command(
-            ["python3", "-m", "ariarpcc", "add", self.TEST_FILE_URL], "Adding download for pause test"
-        )
+        add_result = self._run_command(["python3", "-m", "a2rpc", "add", self.TEST_FILE_URL], "Adding download for pause test")
         gid = add_result.stdout.split()[-1]
 
         # Pause download
-        pause_cmd = ["python3", "-m", "ariarpcc", "pause", gid]
+        pause_cmd = ["python3", "-m", "a2rpc", "pause", gid]
         pause_result = self._run_command(pause_cmd, "Pausing download")
         self.assertEqual(pause_result.returncode, 0)
 
@@ -138,7 +136,7 @@ class TestAria2RPC(unittest.TestCase):
         self.assertEqual(status["result"]["status"], "paused")
 
         # Resume download
-        resume_cmd = ["python3", "-m", "ariarpcc", "resume", gid]
+        resume_cmd = ["python3", "-m", "a2rpc", "resume", gid]
         resume_result = self._run_command(resume_cmd, "Resuming download")
         self.assertEqual(resume_result.returncode, 0)
 
@@ -153,7 +151,7 @@ class TestAria2RPC(unittest.TestCase):
         self.assertIn("version", version["result"])
 
         # Run shutdown command
-        shutdown_cmd = ["python3", "-m", "ariarpcc", "shutdown"]
+        shutdown_cmd = ["python3", "-m", "a2rpc", "shutdown"]
         result = self._run_command(shutdown_cmd, "Shutting down server")
         self.assertEqual(result.returncode, 0)
 

@@ -46,7 +46,7 @@ class TestAria2RPC(unittest.TestCase):
 
     # @unittest.skip("Enable to test download commands")
     def test_01(self):
-        add_cmd = ["python3", "-m", "ariarpcc", "--rpc-secret", "atatatata", "start", "--port", 6888]
+        add_cmd = ["python3", "-m", "a2rpc", "--rpc-secret", "atatatata", "start", "--port", 6888]
         result = self._run_command(add_cmd, "Start aria")
         self.assertEqual(result.returncode, 0)
         input = self.TEST_DIR / "input.txt"
@@ -57,13 +57,15 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-netboot-amd64.tar.gz
     out=netboot-amd64.tar.gz
 https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent
     follow-torrent=mem
+https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.wsl https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.manifest
+    dir={self.TEST_DIR.joinpath("wsl")}
         """
         )
         # Add download
         add_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",
@@ -88,7 +90,7 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent
         list_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",
@@ -102,20 +104,32 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent
         #
         self.assertTrue(self.TEST_DIR.joinpath("netboot-amd64.tar.gz").is_file())
         self.assertTrue(self.TEST_DIR.joinpath("ubuntu-24.04.2-desktop-amd64.iso").is_file())
-
-        # # Remove download
-        # remove_cmd = ["python3", "-m", "ariarpcc", "remove", gid]
-        # result = self._run_command(remove_cmd, "Removing download")
-        # self.assertEqual(result.returncode, 0)
+        self.assertTrue(self.TEST_DIR.joinpath("wsl", "ubuntu-24.04.2-wsl-amd64.manifest").is_file())
+        # Remove download
+        # for gid in gids:
+        #     remove_cmd = [
+        #         "python3",
+        #         "-m",
+        #         "a2rpc",
+        #         "--rpc-secret",
+        #         "atatatata",
+        #         "--rpc-url",
+        #         "http://localhost:6888/jsonrpc",
+        #         "remove",
+        #         gid,
+        #     ]
+        #     result = self._run_command(remove_cmd, "Removing download")
+        #     self.assertEqual(result.returncode, 0)
 
         # Run shutdown command
-        shutdown_cmd = ["python3", "-m", "ariarpcc", "--rpc-url", "http://localhost:6888/jsonrpc", "shutdown"]
+        shutdown_cmd = ["python3", "-m", "a2rpc", "--rpc-url", "http://localhost:6888/jsonrpc", "shutdown"]
         result = self._run_command(shutdown_cmd, "Shutting down server (no rpc-secret)")
         self.assertNotEqual(result.returncode, 0)
+        #
         shutdown_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",
