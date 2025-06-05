@@ -5,6 +5,8 @@ import subprocess
 import shutil
 from .cliskel import Main, arg, flag
 
+__version__ = "0.0.1"
+
 
 class Aria2RPC(Main):
     """

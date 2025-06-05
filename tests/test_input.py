@@ -46,7 +46,7 @@ class TestAria2RPC(unittest.TestCase):
 
     # @unittest.skip("Enable to test download commands")
     def test_01(self):
-        add_cmd = ["python3", "-m", "ariarpcc", "--rpc-secret", "atatatata", "start", "--port", 6888]
+        add_cmd = ["python3", "-m", "a2rpc", "--rpc-secret", "atatatata", "start", "--port", 6888]
         result = self._run_command(add_cmd, "Start aria")
         self.assertEqual(result.returncode, 0)
         input = self.TEST_DIR / "input.txt"
@@ -65,7 +65,7 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.wsl https://releases.
         add_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",
@@ -90,7 +90,7 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.wsl https://releases.
         list_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",
@@ -110,7 +110,7 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.wsl https://releases.
         #     remove_cmd = [
         #         "python3",
         #         "-m",
-        #         "ariarpcc",
+        #         "a2rpc",
         #         "--rpc-secret",
         #         "atatatata",
         #         "--rpc-url",
@@ -122,14 +122,14 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-wsl-amd64.wsl https://releases.
         #     self.assertEqual(result.returncode, 0)
 
         # Run shutdown command
-        shutdown_cmd = ["python3", "-m", "ariarpcc", "--rpc-url", "http://localhost:6888/jsonrpc", "shutdown"]
+        shutdown_cmd = ["python3", "-m", "a2rpc", "--rpc-url", "http://localhost:6888/jsonrpc", "shutdown"]
         result = self._run_command(shutdown_cmd, "Shutting down server (no rpc-secret)")
         self.assertNotEqual(result.returncode, 0)
         #
         shutdown_cmd = [
             "python3",
             "-m",
-            "ariarpcc",
+            "a2rpc",
             "--rpc-secret",
             "atatatata",
             "--rpc-url",

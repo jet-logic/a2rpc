@@ -23,9 +23,9 @@ class TestExtra(TestCase):
         return result
 
     def test_start_shutdown(self):
-        p = Popen(["python", "-m", "ariarpcc", "start"])
+        p = Popen(["python", "-m", "a2rpc", "start"])
         sleep(1)
-        c = run(["python", "-m", "ariarpcc", "shutdown", "--force"], check=True)
+        c = run(["python", "-m", "a2rpc", "shutdown", "--force"], check=True)
         self.assertEqual(c.returncode, 0)
         p.terminate()
         p.wait(5)
