@@ -80,8 +80,8 @@ class InputDownload(Aria2RPC):
             else:
                 inp = open(f, "r")
             umap: "dict[str, dict[str,str]]" = {}
-            ucur = None
-            udef = {}
+            o_cur = None  # options for current url
+            o_all = {}  # options for all
             with inp:
                 for v in inp:
                     v = v.rstrip()
@@ -90,12 +90,12 @@ class InputDownload(Aria2RPC):
                     elif v.startswith(" ") or v.startswith("\t"):
                         name, _, value = v.lstrip().partition("=")
                         if value and name:
-                            if ucur is None:
-                                udef[name] = value
+                            if o_cur is None:
+                                o_all[name] = value
                             else:
-                                ucur[name] = value
+                                o_cur[name] = value
                     elif v not in umap:
-                        umap[v] = ucur = udef.copy()
+                        umap[v] = o_cur = o_all.copy()
             return umap
 
         for x in self.inputs:
@@ -215,7 +215,7 @@ class Shutdown(Aria2RPC):
 class StartServer(Main):
     """Start aria2c RPC server."""
 
-    port: int = flag("-p", "--port", default=6800, help="RPC server port")
+    port: int = flag("-p", "--port", default=-1, help="RPC server port")
     rpc_listen_all: bool = flag("--rpc-listen-all", action="store_true", help="Listen on all network interfaces")
     rpc_allow_origin_all: bool = flag("--rpc-allow-origin-all", action="store_true", help="Allow all origins")
     continue_downloads: bool = flag("--continue", action="store_true", help="Continue interrupted downloads")
@@ -228,6 +228,11 @@ class StartServer(Main):
             return
 
         cmd = [self.aria2c_path]
+        if self.port < 0:
+            from urllib.parse import urlparse
+
+            o = urlparse(self.rpc_url)
+            self.port = o.port
 
         cmd.extend(["--enable-rpc"])
         cmd.extend(["--rpc-listen-port", str(self.port)])
@@ -244,8 +249,6 @@ class StartServer(Main):
 
         if self.dir:
             cmd.extend(["--dir", self.dir])
-
-        # if self.daemon:
 
         if self.rpc_secret:
             cmd.extend(["--rpc-secret", self.rpc_secret])

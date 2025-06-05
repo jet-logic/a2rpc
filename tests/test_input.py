@@ -52,11 +52,11 @@ class TestAria2RPC(unittest.TestCase):
         input = self.TEST_DIR / "input.txt"
         input.write_text(
             rf"""
-                dir:{self.TEST_DIR}
+                dir={self.TEST_DIR}
 https://releases.ubuntu.com/noble/ubuntu-24.04.2-netboot-amd64.tar.gz
-    out:netboot-amd64.tar.gz
+    out=netboot-amd64.tar.gz
 https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent
-    follow-torrent:mem
+    follow-torrent=mem
         """
         )
         # Add download
@@ -72,18 +72,23 @@ https://releases.ubuntu.com/noble/ubuntu-24.04.2-desktop-amd64.iso.torrent
         result = self._run_command(add_cmd, "Adding test download")
         self.assertEqual(result.returncode, 0)
         # Get the GID from output
-        output_lines = result.stdout.splitlines()
-        gid = output_lines[-1].split()[-1]
-        self.assertTrue(len(gid) > 5)  # Basic GID format check
+        gids = [x.split()[-1] for x in result.stdout.splitlines()]
+        self.assertTrue(gids)
+        for gid in gids:
+            self.assertTrue(len(gid) > 5)  # Basic GID format check
         #
-        time.sleep(10)
+        time.sleep(5)
         #
         self._run_command(["find", self.TEST_DIR], f"List {self.TEST_DIR}")
+
         # List downloads
         list_cmd = ["python3", "-m", "ariarpcc", "--rpc-url", "http://localhost:6888/jsonrpc", "list", "--debug"]
         result = self._run_command(list_cmd, "Listing downloads")
         self.assertEqual(result.returncode, 0)
         self.assertIn(gid, result.stdout)
+        #
+        self.assertTrue(self.TEST_DIR.joinpath("netboot-amd64.tar.gz").is_file())
+        self.assertTrue(self.TEST_DIR.joinpath("ubuntu-24.04.2-desktop-amd64.iso").is_file())
 
         # # Remove download
         # remove_cmd = ["python3", "-m", "ariarpcc", "remove", gid]
