@@ -11,14 +11,8 @@ class Aria2RPC(Main):
     A CLI tool to interact with aria2c's RPC interface.
     """
 
-    # Global flags
-    rpc_url: str = flag(
-        "--rpc-url",
-        default="http://localhost:6800/jsonrpc",
-        help="Aria2 RPC server URL",
-    )
-    rpc_secret: Optional[str] = flag("--rpc-secret", help="Aria2 RPC secret token")
-    aria2c_path: str = flag("--bin", default="aria2c", help="Path to aria2c executable")
+    rpc_url: str
+    rpc_secret: str
 
     def _call_rpc(self, method: str, params: List[Any] = None) -> Dict[str, Any]:
         """Make a JSON-RPC request to aria2c."""
@@ -37,7 +31,7 @@ class Aria2RPC(Main):
         try:
             response = requests.post(self.rpc_url, json=payload)
         except Exception as ex:
-            raise SystemExit(f"{ex}")
+            raise SystemExit(f"Request error {self.rpc_url}: {ex}")
 
         try:
             json: dict = response.json()
@@ -60,6 +54,24 @@ class AddDownload(Aria2RPC):
     options: list = flag("-s", help="Set option name=value", default=[])
 
     def start(self):
+        options = dict([(y[0], y[2]) if y[1] else (y[0], "true") for y in [x.partition("=") for x in self.options]])
+        if self.output:
+            options["out"] = self.output
+        if self.dir:
+            options["dir"] = self.dir
+        if not options.get("follow-torrent"):
+            if self.uri.endswith(".torrent") or self.uri.endswith(".metalink"):
+                options["follow-torrent"] = "mem"
+        result = self._call_rpc("addUri", [[self.uri], options])
+        print(f"Added download with GID: {result['result']}")
+
+
+class InputDownload(Aria2RPC):
+    """Add a multiple downloads."""
+
+    inputs: list = arg("INPUT", help="Downloads the URIs listed in FILE", metavar="FILE", nargs="+")
+
+    def start(self):
         def read_inp(f):
             if f == "-":
                 from sys import stdin
@@ -67,7 +79,7 @@ class AddDownload(Aria2RPC):
                 inp = stdin
             else:
                 inp = open(f, "r")
-            umap = {}
+            umap: "dict[str, dict[str,str]]" = {}
             ucur = None
             udef = {}
             with inp:
@@ -86,16 +98,11 @@ class AddDownload(Aria2RPC):
                         umap[v] = ucur = udef.copy()
             return umap
 
-        options = dict([(y[0], y[2]) if y[1] else (y[0], "true") for y in [x.partition("=") for x in self.options]])
-        if self.output:
-            options["out"] = self.output
-        if self.dir:
-            options["dir"] = self.dir
-        if not options.get("follow-torrent"):
-            if self.uri.endswith(".torrent") or self.uri.endswith(".metalink"):
-                options["follow-torrent"] = "mem"
-        result = self._call_rpc("addUri", [[self.uri], options])
-        print(f"Added download with GID: {result['result']}")
+        for x in self.inputs:
+            umap = read_inp(x)
+            for url, options in umap.items():
+                result = self._call_rpc("addUri", [[url], options])
+                print(f"Added download with GID: {result['result']}")
 
 
 class ListDownloads(Aria2RPC):
@@ -137,27 +144,17 @@ class ListDownloads(Aria2RPC):
         else:
             dbg = None
 
-        head = "\n=== Active Downloads ==="
-        for task in active:
-            if head:
-                print(head)
-                head = None
-            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
-            dbg and dbg(task)
-        head = "\n=== Waiting Downloads ==="
-        for task in waiting:
-            if head:
-                print(head)
-                head = None
-            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
-            dbg and dbg(task)
-        head = "\n=== Stopped Downloads ==="
-        for task in stopped:
-            if head:
-                print(head)
-                head = None
-            print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
-            dbg and dbg(task)
+        def ls(tasks: list, head: str):
+            for task in tasks:
+                if head:
+                    print(head)
+                    head = None
+                print(f"[{task['gid']}] {sf|task['completedLength']}/{sf|task['totalLength']} - {task['files'][0]['path']}")
+                dbg and dbg(task)
+
+        ls(active, "\n=== Active Downloads ===")
+        ls(waiting, "\n=== Waiting Downloads ===")
+        ls(stopped, "\n=== Stopped Downloads ===")
 
 
 class RemoveDownload(Aria2RPC):
@@ -205,27 +202,7 @@ class Shutdown(Aria2RPC):
 
     force: bool = flag("--force", action="store_true", help="Force shutdown (no confirmation)")
 
-    def _is_server_running(self) -> bool:
-        """Check if the RPC server is running by making a test request."""
-        try:
-            # Use a simple method that should work even without authentication
-            response = requests.get(self.rpc_url, timeout=2)
-            print(response.json())
-            return response.status_code == 200
-        except requests.exceptions.RequestException:
-            return False
-
     def start(self):
-        # if not self._is_server_running():
-        #     print("Error: aria2c RPC server is not running")
-        #     return
-
-        # if not self.force:
-        #     confirm = input("Are you sure you want to shutdown aria2c? (y/N): ")
-        #     if confirm.lower() != "y":
-        #         print("Shutdown cancelled.")
-        #         return
-
         try:
             result = self._call_rpc("shutdown")
             print("Shutdown command sent to aria2c.")
@@ -235,21 +212,15 @@ class Shutdown(Aria2RPC):
             print(f"Error shutting down aria2c: {e}")
 
 
-class StartServer(Aria2RPC):
+class StartServer(Main):
     """Start aria2c RPC server."""
 
     port: int = flag("-p", "--port", default=6800, help="RPC server port")
-    # enable_rpc: bool = flag(
-    #     "--enable-rpc",
-    #     action="store_true",
-    #     default=True,
-    #     help="Enable JSON-RPC/XML-RPC server",
-    # )
     rpc_listen_all: bool = flag("--rpc-listen-all", action="store_true", help="Listen on all network interfaces")
     rpc_allow_origin_all: bool = flag("--rpc-allow-origin-all", action="store_true", help="Allow all origins")
     continue_downloads: bool = flag("--continue", action="store_true", help="Continue interrupted downloads")
     dir: str = flag("-d", "--dir", help="Default download directory")
-    # daemon: bool = flag("--daemon", action="store_true", help="Run as daemon")
+    aria2c_path: str = flag("--bin", default="aria2c", help="Path to aria2c executable")
 
     def start(self):
         if not shutil.which(self.aria2c_path):
@@ -290,9 +261,19 @@ class StartServer(Aria2RPC):
 class Aria2CLI(Aria2RPC):
     """Main CLI interface for aria2c RPC."""
 
+    # Global flags
+    rpc_url: str = flag(
+        "rpc-url",
+        default="http://localhost:6800/jsonrpc",
+        metavar="URL",
+        help="Aria2 RPC server URL",
+    )
+    rpc_secret: Optional[str] = flag("--rpc-secret", help="Aria2 RPC secret token", metavar="SECRET")
+
     def sub_args(self):
         yield StartServer(), {"name": "start", "help": "Start aria2c RPC server"}
         yield AddDownload(), {"name": "add", "help": "Add a new download"}
+        yield InputDownload(), {"name": "input", "help": "Add a multiple downloads"}
         yield ListDownloads(), {"name": "list", "help": "List active downloads"}
         yield RemoveDownload(), {"name": "remove", "help": "Remove a download"}
         yield PauseDownload(), {"name": "pause", "help": "Pause a download"}
