@@ -6,6 +6,8 @@ authors = [
     {name = "Jet-Logic"}
 ]
 dependencies = [    "requests",  "pyyaml"]
+readme = "README.md"
+license = {file = "LICENSE"} 
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
