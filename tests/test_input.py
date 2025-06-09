@@ -46,7 +46,7 @@ class TestAria2RPC(unittest.TestCase):
 
     # @unittest.skip("Enable to test download commands")
     def test_01(self):
-        add_cmd = ["python3", "-m", "a2rpc", "--rpc-secret", "atatatata", "start", "--port", 6888]
+        add_cmd = ["python3", "-m", "a2rpc", "--port", 6888, "--rpc-secret", "atatatata", "start"]
         result = self._run_command(add_cmd, "Start aria")
         self.assertEqual(result.returncode, 0)
         input = self.TEST_DIR / "input.txt"
