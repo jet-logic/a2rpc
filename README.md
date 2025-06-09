@@ -1,6 +1,8 @@
 # Aria2 RPC CLI (a2rpc)
 
-[![PyPI](https://img.shields.io/pypi/v/a2rpc)](https://pypi.org/project/a2rpc/)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
+[![Tests Status](https://github.com/jet-logic/a2rpc/actions/workflows/tests.yml/badge.svg)](https://github.com/jet-logic/a2rpc/actions)
+[![PyPI version fury.io](https://badge.fury.io/py/a2rpc.svg)](https://pypi.python.org/pypi/a2rpc/)
 
 A lightweight Python CLI tool to interact with **aria2c's JSON-RPC interface**, designed for scripting and automation.
 
@@ -19,7 +21,11 @@ A lightweight Python CLI tool to interact with **aria2c's JSON-RPC interface**, 
 - **🔒 Secure**  
   Supports RPC secret tokens for authenticated access.
 
----
+## ☕ Support
+
+If you find this project helpful, consider supporting me:
+
+## [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B01E8SY7)
 
 ## Installation
 

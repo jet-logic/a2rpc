@@ -15,6 +15,11 @@ class Aria2RPC(Main):
 
     rpc_url: str
     rpc_secret: str
+    rpc_port: int
+    rpc_url_user: str
+
+    def _get_rpc_url(self):
+        return self.rpc_url_user or f"http://localhost:{self.rpc_port}/jsonrpc"
 
     def _call_rpc(self, method: str, params: List[Any] = None) -> Dict[str, Any]:
         """Make a JSON-RPC request to aria2c."""
@@ -37,8 +42,8 @@ class Aria2RPC(Main):
 
         try:
             json: dict = response.json()
-        except Exception:
-            raise
+        except Exception as e:
+            raise RuntimeError(f"Response json error {self.rpc_url!r}") from e
         else:
             error: dict = json.get("error")
             if error:
@@ -221,7 +226,6 @@ class Shutdown(Aria2RPC):
 class StartServer(Main):
     """Start aria2c RPC server."""
 
-    port: int = flag("-p", "--port", default=-1, help="RPC server port")
     rpc_listen_all: bool = flag("--rpc-listen-all", action="store_true", help="Listen on all network interfaces")
     rpc_allow_origin_all: bool = flag("--rpc-allow-origin-all", action="store_true", help="Allow all origins")
     continue_downloads: bool = flag("--continue", action="store_true", help="Continue interrupted downloads")
@@ -234,14 +238,8 @@ class StartServer(Main):
             return
 
         cmd = [self.aria2c_path]
-        if self.port < 0:
-            from urllib.parse import urlparse
-
-            o = urlparse(self.rpc_url)
-            self.port = o.port
-
         cmd.extend(["--enable-rpc"])
-        cmd.extend(["--rpc-listen-port", str(self.port)])
+        cmd.extend(["--rpc-listen-port", str(self.rpc_port)])
         cmd.append("--daemon")
 
         if self.rpc_listen_all:
@@ -262,7 +260,7 @@ class StartServer(Main):
         print(f"Starting aria2c with: {' '.join(cmd)}")
         try:
             subprocess.Popen(cmd)
-            print(f"aria2c RPC server started on port {self.port}")
+            print(f"aria2c RPC server started on port {self.rpc_port}")
         except Exception as e:
             print(f"Failed to start aria2c: {e}")
 
@@ -271,13 +269,15 @@ class Aria2CLI(Aria2RPC):
     """Main CLI interface for aria2c RPC."""
 
     # Global flags
-    rpc_url: str = flag(
+    rpc_url_user: str = flag(
         "rpc-url",
-        default="http://localhost:6800/jsonrpc",
+        default="",
         metavar="URL",
         help="Aria2 RPC server URL",
     )
     rpc_secret: Optional[str] = flag("rpc-secret", help="Aria2 RPC secret token", metavar="SECRET")
+    rpc_port: int = flag("-p", "--port", default=6800, help="RPC server port")
+    _version = flag("version", action="version", version=__version__)
 
     def sub_args(self):
         yield StartServer(), {"name": "start", "help": "Start aria2c RPC server"}
@@ -291,7 +291,7 @@ class Aria2CLI(Aria2RPC):
 
 
 def filesizef(s):
-    # type: (Union[int, float]) -> str
+    # type: (int|float) -> str
     if not s and s != 0:
         return "-"
     for x in "bkMGTPEZY":
