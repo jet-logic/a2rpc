@@ -5,7 +5,7 @@ import subprocess
 import shutil
 from .cliskel import Main, arg, flag
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 class Aria2RPC(Main):
@@ -231,6 +231,7 @@ class StartServer(Main):
     continue_downloads: bool = flag("--continue", action="store_true", help="Continue interrupted downloads")
     dir: str = flag("-d", "--dir", help="Default download directory")
     aria2c_path: str = flag("--bin", default="aria2c", help="Path to aria2c executable")
+    args: "list[str]" = arg("ARG", nargs="*", help="extra arguments to pass", default=[])
 
     def start(self):
         if not shutil.which(self.aria2c_path):
@@ -256,6 +257,7 @@ class StartServer(Main):
 
         if self.rpc_secret:
             cmd.extend(["--rpc-secret", self.rpc_secret])
+        cmd.extend(self.args)
 
         print(f"Starting aria2c with: {' '.join(cmd)}")
         try:
